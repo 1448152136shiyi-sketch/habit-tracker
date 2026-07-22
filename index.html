@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#111">
+<title>记录</title>
+<link rel="manifest" href="manifest.json">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; overflow:hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #111; color: #ddd;
+  user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  display: flex; flex-direction: column;
+}
+
+/* ===== 头部：日期导航 ===== */
+.header {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  padding: 20px 16px 0;
+  flex-shrink: 0;
+}
+.header .arr {
+  width: 38px; height: 38px; border-radius: 50%; border: none;
+  background: #1a1a1a; color: #888; font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .1s;
+}
+.header .arr:active { background: #333; }
+.header .arr.end { opacity: .3; pointer-events: none; }
+.header .mid { text-align: center; min-width: 110px; }
+.header .mid .date { font-size: 20px; font-weight: 600; letter-spacing: 1px; }
+.header .mid .wd { font-size: 13px; color: #555; margin-top: 1px; }
+
+/* 回到今天 */
+.back-today {
+  display: none; text-align: center; padding: 6px 0 0;
+  flex-shrink: 0;
+}
+.back-today button {
+  background: none; border: 1px solid #333; color: #888;
+  font-size: 12px; padding: 5px 18px; border-radius: 14px; cursor: pointer;
+}
+.back-today button:active { background: #222; }
+
+/* ===== 三个按钮，竖排 ===== */
+.btns {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px 20px 8px;
+  flex-shrink: 0;
+}
+.btn {
+  border: none; border-radius: 16px; padding: 16px 20px;
+  font-size: 17px; font-weight: 700; color: #fff; cursor: pointer;
+  display: flex; flex-direction: row; align-items: center; gap: 14px;
+  transition: transform .1s;
+  background: #222;
+}
+.btn:active { transform: scale(.96); }
+.btn .icon { font-size: 36px; line-height: 1; }
+.btn .tag {
+  font-size: 12px; font-weight: 400; opacity: .5;
+  margin-left: auto;
+}
+.btn.flash { background: #333; }
+
+/* ===== 计数条 ===== */
+.counts {
+  display: flex; gap: 14px; padding: 0 20px 12px;
+  flex-shrink: 0;
+}
+.count {
+  flex:1; text-align: center; font-size: 13px; color: #555;
+}
+.count b { font-size: 26px; font-weight: 700; display: block; line-height: 1.2; }
+.count b.has { color: #fff; }
+
+/* ===== 分割线加日志标题 ===== */
+.divider {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 20px 10px; flex-shrink: 0;
+}
+.divider .line { flex:1; height: 1px; background: #222; }
+.divider .txt { font-size: 12px; color: #444; letter-spacing: 2px; white-space: nowrap; }
+
+/* ===== 日志列表 ===== */
+.list {
+  flex:1; overflow-y: auto; padding: 0 20px 20px;
+  -webkit-overflow-scrolling: touch;
+}
+.item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 0; border-bottom: 1px solid #1a1a1a;
+}
+.item .i-icon { font-size: 22px; width: 30px; text-align: center; }
+.item .i-time { font-size: 17px; flex:1; font-variant-numeric: tabular-nums; }
+.item .i-del {
+  font-size: 16px; color: #333; padding: 8px 10px; cursor: pointer;
+  border-radius: 8px; line-height: 1;
+}
+.item .i-del:active { background: #222; color: #e74c3c; }
+.empty { text-align: center; padding: 40px 0; color: #333; font-size: 14px; }
+
+/* ===== 撤销提示 ===== */
+.toast {
+  position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+  background: #333; color: #eee; padding: 10px 22px;
+  border-radius: 20px; font-size: 13px; cursor: pointer;
+  opacity:0; pointer-events:none; transition: opacity .25s;
+  z-index: 100;
+}
+.toast.on { opacity:1; pointer-events:auto; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <button class="arr" id="arrL" onclick="shift(-1)">◀</button>
+  <div class="mid">
+    <div class="date" id="dateEl">7月22日 周二</div>
+    <div class="wd" id="wdEl">周二</div>
+  </div>
+  <button class="arr" id="arrR" onclick="shift(1)">▶</button>
+</div>
+
+<div class="back-today" id="backToday"><button onclick="goToday()">回到今天</button></div>
+
+<div class="btns" id="btns">
+  <button class="btn" id="btnSmoke" onclick="tap('smoke')">
+    <span class="icon">🚬</span>
+    <span>抽烟</span>
+    <span class="tag">点一下记一根</span>
+  </button>
+  <button class="btn" id="btnPoop" onclick="tap('poop')">
+    <span class="icon">💧</span>
+    <span>拉尿</span>
+    <span class="tag">点一下记一次</span>
+  </button>
+  <button class="btn" id="btnWater" onclick="tap('water')">
+    <span class="icon">🥤</span>
+    <span>喝水</span>
+    <span class="tag">点一下记一杯</span>
+  </button>
+</div>
+
+<div class="counts">
+  <div class="count">🚬 <b id="nSmoke">0</b></div>
+  <div class="count">💧 <b id="nPoop">0</b></div>
+  <div class="count">🥤 <b id="nWater">0</b></div>
+</div>
+
+<div class="divider">
+  <span class="line"></span>
+  <span class="txt" id="dividerTxt">今天</span>
+  <span class="line"></span>
+</div>
+
+<div class="list" id="listEl"></div>
+
+<div class="toast" id="toast" onclick="undo()">已删除 · 点此撤销</div>
+
+<script>
+const KEY = 'ht';
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
+  catch { return {}; }
+}
+function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
+
+const s = n => String(n).padStart(2,'0');
+
+function dateKey(d) {
+  return `${d.getFullYear()}-${s(d.getMonth()+1)}-${s(d.getDate())}`;
+}
+
+function nowTime() {
+  const d = new Date();
+  return `${s(d.getHours())}:${s(d.getMinutes())}`;
+}
+
+// 当前查看的日期
+let viewDate = new Date();
+let lastDel = null;
+let toastTimer = null;
+
+function isToday() {
+  return dateKey(viewDate) === dateKey(new Date());
+}
+
+// 最早有数据的日期
+function firstDate() {
+  const d = load();
+  const keys = Object.keys(d).sort();
+  return keys.length ? new Date(keys[0]) : null;
+}
+
+function tap(type) {
+  if (!isToday()) return;
+  const k = dateKey(viewDate);
+  const d = load();
+  if (!d[k]) d[k] = [];
+  d[k].push({ type, time: nowTime() });
+  save(d);
+  const btnMap = { smoke: 'btnSmoke', poop: 'btnPoop', water: 'btnWater' };
+  const btn = document.getElementById(btnMap[type]);
+  btn.classList.add('flash');
+  setTimeout(() => btn.classList.remove('flash'), 120);
+  render();
+}
+
+function del(k, i) {
+  const d = load();
+  if (!d[k]) return;
+  lastDel = { k, entry: d[k][i], i };
+  d[k].splice(i, 1);
+  if (!d[k].length) delete d[k];
+  save(d);
+  render();
+  const t = document.getElementById('toast');
+  t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.classList.remove('on'); lastDel = null; }, 3500);
+}
+
+function undo() {
+  if (!lastDel) return;
+  const d = load();
+  const { k, entry, i } = lastDel;
+  if (!d[k]) d[k] = [];
+  d[k].splice(i, 0, entry);
+  save(d);
+  lastDel = null;
+  document.getElementById('toast').classList.remove('on');
+  clearTimeout(toastTimer);
+  render();
+}
+
+function shift(delta) {
+  viewDate.setDate(viewDate.getDate() + delta);
+  render();
+}
+
+function goToday() {
+  viewDate = new Date();
+  render();
+}
+
+function render() {
+  const k = dateKey(viewDate);
+  const d = load();
+  const items = (d[k] || []).map((e, i) => ({ ...e, _i: i }));
+  const sorted = [...items].sort((a, b) => a.time.localeCompare(b.time));
+  const smokes = items.filter(e => e.type === 'smoke').length;
+  const poops  = items.filter(e => e.type === 'poop').length;
+  const waters = items.filter(e => e.type === 'water').length;
+
+  const today = isToday();
+  const ws = ['周日','周一','周二','周三','周四','周五','周六'];
+  document.getElementById('dateEl').textContent =
+    `${viewDate.getMonth()+1}月${viewDate.getDate()}日`;
+  document.getElementById('wdEl').textContent = ws[viewDate.getDay()];
+
+  // 左右箭头：到达最早日期时禁用
+  const first = firstDate();
+  document.getElementById('arrL').className = 'arr' +
+    (first && dateKey(viewDate) <= dateKey(first) ? ' end' : '');
+  document.getElementById('arrR').className = 'arr' +
+    (today ? ' end' : ''); // 不能看未来
+
+  // 回到今天按钮 & 记录按钮
+  document.getElementById('backToday').style.display = today ? 'none' : 'block';
+  document.getElementById('btns').style.display = today ? 'flex' : 'none';
+
+  // 计数
+  const n1 = document.getElementById('nSmoke');
+  const n2 = document.getElementById('nPoop');
+  const n3 = document.getElementById('nWater');
+  n1.textContent = smokes;
+  n2.textContent = poops;
+  n3.textContent = waters;
+  n1.className = smokes ? 'has' : '';
+  n2.className = poops  ? 'has' : '';
+  n3.className = waters ? 'has' : '';
+
+  document.getElementById('dividerTxt').textContent = today
+    ? (sorted.length ? `今天 · ${sorted.length} 条记录` : '今天还没有记录')
+    : (sorted.length ? `${sorted.length} 条记录` : '这天没有记录');
+
+  // 列表
+  const list = document.getElementById('listEl');
+  if (!sorted.length) {
+    list.innerHTML = '<div class="empty">还没有记录</div>';
+    return;
+  }
+  list.innerHTML = sorted.map(e =>
+    `<div class="item">
+      <span class="i-icon">${e.type === 'smoke' ? '🚬' : e.type === 'poop' ? '💧' : '🥤'}</span>
+      <span class="i-time">${e.time}</span>
+      <span class="i-del" onclick="event.stopPropagation();del('${k}',${e._i})">✕</span>
+    </div>`
+  ).join('');
+}
+
+render();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+</body>
+</html>
