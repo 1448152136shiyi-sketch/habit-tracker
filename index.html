@@ -306,6 +306,10 @@ render();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
+  // 检测到新版本自动刷新
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    location.reload();
+  });
 }
 </script>
 </body>
